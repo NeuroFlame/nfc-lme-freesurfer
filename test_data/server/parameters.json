@@ -1,0 +1,34 @@
+{
+    "Dependents": {
+        "Left-Lateral-Ventricle": "float",
+        "Left-Inf-Lat-Vent": "float",
+        "Left-Cerebellum-White-Matter": "float",
+        "3rd-Ventricle": "float",
+        "Left-Cerebellum-Cortex": "float",
+        "4th-Ventricle": "float",
+        "5th-Ventricle": "float"
+    },
+    "Covariates": {
+        "age": "float",
+        "isControl": "bool"
+    },
+    "Contrasts": [
+        {
+            "name": {"value": "Intercept"},
+            "vector": {"value": [1, 0, 0]}
+        },
+        {
+            "name": {"value": "age"},
+            "vector": {"value": [0, 1, 0]}
+        },
+        {
+            "name": {"value": "isControl"},
+            "vector": {"value": [0, 0, 1]}
+        },
+        {
+            "name": {"value": "OmnibusF"},
+            "vector": {"value": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]}
+        }
+    ],
+    "IgnoreSubjectsWithMissingData": false
+}
