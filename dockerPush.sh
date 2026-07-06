@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Input parameters
-REPOSITORY="dylanrmartin/computations"            # Default repository
-COMPUTATION_HANDLE="lme_freesurfer" # Default computation handle
+REPOSITORY="coinstacteam"            # Default repository
+COMPUTATION_HANDLE="nfc-lme-freesurfer" # Default computation handle
 
 # Get the current commit hash if not provided
 COMMIT_HASH=${1:-$(git rev-parse HEAD)}
