@@ -2,15 +2,13 @@
 
 # Input parameters
 REPOSITORY="dylanrmartin/computations"            # Default repository
-COMPUTATION_HANDLE="boilerplate_average_app" # Default computation handle
+COMPUTATION_HANDLE="lme_freesurfer" # Default computation handle
 
 # Get the current commit hash if not provided
 COMMIT_HASH=${1:-$(git rev-parse HEAD)}
 
 # Full tag for the image
-# IMAGE_TAG="${REPOSITORY}:${COMPUTATION_HANDLE}-${COMMIT_HASH}"
-
-IMAGE_TAG="${REPOSITORY}:${COMPUTATION_HANDLE}"
+IMAGE_TAG="${REPOSITORY}:${COMPUTATION_HANDLE}-${COMMIT_HASH}"
 # Build the image using Dockerfile-prod
 echo "Building the image with Dockerfile-prod..."
 docker build -f Dockerfile-prod -t "${COMPUTATION_HANDLE}" .

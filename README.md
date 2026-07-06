@@ -168,9 +168,3 @@ configuration:
 1. **Parameters value:** `job -w ./myworkspace -n 2 -c site1,site2` (change the site count
    to match your test data).
 2. **Environment Variables value:** `PYTHONUNBUFFERED=1;PYTHONPATH=<your_local_full_path>/nfc-lme-freesurfer/app/code`
-
-## Documentation
-
-- **[Computation Interface Documentation](docs/neuroflame_computation_interface/neuroflame_computation_interface.md)**: How computations interact with NeuroFLAME.
-- **[Developer Guides](docs/computation_development/computation_development.md)**: Tips for seamless computation development.
-- **[Publishing Requirements](docs/computation_publishing/Computation_Publishing_Requirements.md)**: Requirements and instructions for publishing.
