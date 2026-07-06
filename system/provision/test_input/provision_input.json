@@ -1,5 +1,9 @@
 {
-    "user_ids": ["user1", "user2", "user3"],
+    "users": [
+        {"id": "66289c79aebab67040a20068", "name": "site1"},
+        {"id": "66289c79aebab67040a20069", "name": "site2"},
+        {"id": "66289c79aebab67040a20070", "name": "site3"}
+    ],
     "computation_parameters": "{\"testKey\":\"testValue\"}",
     "fed_learn_port": 5000,
     "admin_port": 5001,
