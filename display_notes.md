@@ -60,10 +60,12 @@ Each site provides two CSV files:
 - **Format**: CSV (Comma-Separated Values)
 - **Headers**: one column per fixed-effect covariate, matching the `"Covariates"` section
   of `parameters.json`.
-- **`RandomFactor` (optional)**: an integer column (1-indexed) grouping rows into random-
-  effect levels *within this site's own data* — e.g. a consortium node submitting pooled
-  data from several sub-sites can list a different sub-site number per row. If omitted,
-  all rows default to level 1 (the whole site is treated as a single random-effect level).
+- **`RandomFactor` (optional)**: a column grouping rows into random-effect levels *within
+  this site's own data* — e.g. a consortium node submitting pooled data from several
+  sub-sites/sub-institutions can label each row with the name of the sub-site it came
+  from (any type works — strings like institution names, or numeric IDs; values are
+  automatically encoded into dense per-site levels, sorted alphabetically/numerically).
+  If omitted, all rows default to a single random-effect level.
 - **Rows**: one row per subject, in the same order as `data.csv`.
 
 **General Structure**:
@@ -121,9 +123,10 @@ The key steps of the algorithm include:
 - `Contrasts` are defined once, centrally, in `parameters.json` — all sites use the same
   contrasts (unlike the original COINSTAC computation, which allowed per-site contrast
   input; only the first site's copy was ever used there).
-- `RandomFactor` values, if provided, are positive integers (1-indexed) and only need to
-  be locally consistent within a site — they do not need to be globally unique across
-  sites.
+- `RandomFactor` values, if provided, only need to be locally consistent within a site
+  (i.e. meaningfully distinguish sub-groups *within that site's own data*) — they do not
+  need to be globally unique or consistently labeled across sites. Each site's distinct
+  values are independently encoded into their own dense set of levels.
 - The computation is run in a federated environment, and each site contributes valid data.
 
 #### Output Description

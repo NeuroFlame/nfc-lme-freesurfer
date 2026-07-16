@@ -47,11 +47,18 @@ def validate_and_get_inputs(covariates_path: str, data_path: str, computation_pa
 
         random_factor_col = client_constants.DEFAULT_RANDOM_FACTOR_COLUMN
         if random_factor_col in covariates.columns:
-            random_factor = pd.to_numeric(covariates[random_factor_col], errors='coerce').astype('int')
-            if random_factor.isnull().any():
-                error_message = f"Column '{random_factor_col}' contains non-integer values."
+            if covariates[random_factor_col].isnull().any():
+                error_message = f"Column '{random_factor_col}' contains empty values."
                 logger.error(error_message)
                 return False, None, None, None
+            # Labels can be any type (institution names, numeric site IDs, ...); encode
+            # them into a dense, deterministically-ordered 1..n local level per site,
+            # independent of whatever raw labels/values were used.
+            raw_labels = covariates[random_factor_col].astype(str).str.strip()
+            codes, uniques = pd.factorize(raw_labels, sort=True)
+            random_factor = pd.Series(codes + 1)
+            level_map = {label: level for level, label in enumerate(uniques, start=1)}
+            logger.info(f"'{random_factor_col}' levels for this site: {level_map}")
         else:
             random_factor = pd.Series(np.ones(len(covariates), dtype=int))
             logger.info(f"No '{random_factor_col}' column found; treating this site as a single random-effect level.")
