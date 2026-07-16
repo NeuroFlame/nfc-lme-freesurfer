@@ -1718,8 +1718,11 @@ def T2P3D(T,df,minlog):
     P[T < 0] = -np.log10(1-stats.t.cdf(T[T < 0], df[T < 0]))
     P[T >= 0] = -np.log10(stats.t.cdf(-T[T >= 0], df[T >= 0]))
 
-    # Remove infs
+    # Remove infs. -log10(p) overflows to +inf when p underflows to exactly 0.0
+    # (e.g. very large |T| relative to a small sample, common with small per-site
+    # local fits); clamp to the extreme finite magnitude in both directions.
     P[np.logical_and(np.isinf(P), P<0)]=minlog
+    P[np.logical_and(np.isinf(P), P>0)]=-minlog
 
     return(P)
 
@@ -1758,8 +1761,11 @@ def F2P3D(F, L, df_denom, minlog):
     # Work out P
     P = -np.log10(1-stats.f.cdf(F, df_num, df_denom))
 
-    # Remove infs
+    # Remove infs. -log10(p) overflows to +inf when p underflows to exactly 0.0
+    # (e.g. a very large F-statistic relative to a small sample); clamp to the
+    # extreme finite magnitude in both directions.
     P[np.logical_and(np.isinf(P), P<0)]=minlog
+    P[np.logical_and(np.isinf(P), P>0)]=-minlog
 
     return(P)
 
