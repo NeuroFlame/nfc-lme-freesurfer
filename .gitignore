@@ -5,3 +5,4 @@ test_output/simulate_job/
 poc-workspace/
 job/
 .DS_Store
+test_data_synapse/
