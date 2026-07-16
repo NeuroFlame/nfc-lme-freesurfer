@@ -25,6 +25,10 @@ def perform_remote_step1_gather_site_levels(site_results, agg_cache_dict):
     nlevels_global = running_total
     nobservns_global = sum(site_results[sid]["nobservns"] for sid in sorted_site_ids)
 
+    random_factor_labels_per_site = {
+        sid: site_results[sid].get("random_factor_labels") for sid in sorted_site_ids
+    }
+
     output_dict = {
         "col_offset_per_site": col_offset_per_site,
         "nlevels_global": nlevels_global,
@@ -33,6 +37,7 @@ def perform_remote_step1_gather_site_levels(site_results, agg_cache_dict):
     cache_dict = {
         "nlevels_global": nlevels_global,
         "nobservns_global": nobservns_global,
+        "random_factor_labels_per_site": random_factor_labels_per_site,
     }
 
     computation_output = {
@@ -99,7 +104,16 @@ def perform_remote_step2_compute_global_model(site_results, agg_cache_dict):
         [OutputDictKeyLabels.ROI.value, OutputDictKeyLabels.GLOBAL_STATS.value, OutputDictKeyLabels.LOCAL_STATS.value],
         y_labels, global_dict_list, local_dict)
 
-    output_dict = {"regressions": dict_list}
+    random_factor_labels_per_site = agg_cache_dict.get("random_factor_labels_per_site", {})
+    random_effect_levels = {
+        "total": int(nlevels_global[0]),
+        "per_site": {
+            site_id_name_map.get(sid, sid): (random_factor_labels_per_site.get(sid) or [])
+            for sid in sorted_site_ids
+        },
+    }
+
+    output_dict = {"regressions": dict_list, "random_effect_levels": random_effect_levels}
 
     computation_output = {
         "output": output_dict,

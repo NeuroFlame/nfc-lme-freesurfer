@@ -12,7 +12,9 @@ def validate_and_get_inputs(covariates_path: str, data_path: str, computation_pa
                             logger: NFCLogger):
     """
     Performs validation on the covariates and data files against provided computation parameters.
-    Returns (is_valid, covariates_df, data_df, random_factor).
+    Returns (is_valid, covariates_df, data_df, random_factor, random_factor_labels).
+    random_factor_labels is the sorted list of distinct raw RandomFactor labels for this
+    site (e.g. institution names), or None if no RandomFactor column was provided.
     """
     try:
         expected_covariates_info = computation_parameters["Covariates"]
@@ -35,7 +37,7 @@ def validate_and_get_inputs(covariates_path: str, data_path: str, computation_pa
             error_message = (f"Covariates headers do not contain all expected headers. Expected at least "
                              f"{expected_covariates}, but got {covariates_headers}.")
             logger.info(error_message)
-            return False, None, None, None
+            return False, None, None, None, None
 
         # Validate data headers
         data_headers = set(data.columns)
@@ -43,24 +45,26 @@ def validate_and_get_inputs(covariates_path: str, data_path: str, computation_pa
             error_message = (f"Data headers do not contain all expected headers. Expected at least "
                              f"{expected_dependents}, but got {data_headers}.")
             logger.info(error_message)
-            return False, None, None, None
+            return False, None, None, None, None
 
         random_factor_col = client_constants.DEFAULT_RANDOM_FACTOR_COLUMN
         if random_factor_col in covariates.columns:
             if covariates[random_factor_col].isnull().any():
                 error_message = f"Column '{random_factor_col}' contains empty values."
                 logger.error(error_message)
-                return False, None, None, None
+                return False, None, None, None, None
             # Labels can be any type (institution names, numeric site IDs, ...); encode
             # them into a dense, deterministically-ordered 1..n local level per site,
             # independent of whatever raw labels/values were used.
             raw_labels = covariates[random_factor_col].astype(str).str.strip()
             codes, uniques = pd.factorize(raw_labels, sort=True)
             random_factor = pd.Series(codes + 1)
+            random_factor_labels = list(uniques)
             level_map = {label: level for level, label in enumerate(uniques, start=1)}
             logger.info(f"'{random_factor_col}' levels for this site: {level_map}")
         else:
             random_factor = pd.Series(np.ones(len(covariates), dtype=int))
+            random_factor_labels = None
             logger.info(f"No '{random_factor_col}' column found; treating this site as a single random-effect level.")
 
         logger.info(f'-- Checking covariate file : {str(covariates_path)}')
@@ -77,12 +81,12 @@ def validate_and_get_inputs(covariates_path: str, data_path: str, computation_pa
         X = X.reset_index(drop=True)
         y = y.reset_index(drop=True)
 
-        return True, X, y, random_factor
+        return True, X, y, random_factor, random_factor_labels
 
     except Exception as e:
         error_message = f"An error occurred during validation: {str(e)}"
         logger.error(error_message)
-        return False, None, None, None
+        return False, None, None, None, None
 
 
 def _convert_data_to_given_type(data_df: pd.DataFrame, column_info: dict, logger: NFCLogger,

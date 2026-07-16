@@ -25,7 +25,7 @@ def perform_client_step1_local_stats(covariates_path, data_path, computation_par
     """
     logger.info(f"Computation parameters received: {computation_parameters}")
 
-    is_valid, X_df, y_df, random_factor = cip.validate_and_get_inputs(
+    is_valid, X_df, y_df, random_factor, random_factor_labels = cip.validate_and_get_inputs(
         covariates_path, data_path, computation_parameters, logger)
     if not is_valid:
         raise ValueError(f"Invalid run input. Check validation log at {logger.get_file_name_with_path()}")
@@ -73,6 +73,7 @@ def perform_client_step1_local_stats(covariates_path, data_path, computation_par
     output_dict = {
         "nlevels": nlevels_local,
         "nobservns": n,
+        "random_factor_labels": random_factor_labels,
     }
 
     cache_dict = {
@@ -228,6 +229,10 @@ def _get_html_from_results(agg_result, computation_parameters=None):
     rois = [r[OutputDictKeyLabels.ROI.value] for r in regressions]
     all_sites = sorted(regressions[0][OutputDictKeyLabels.LOCAL_STATS.value].keys()) if regressions else []
 
+    random_effect_levels = agg_result.get("random_effect_levels", {})
+    total_levels = random_effect_levels.get("total", len(all_sites))
+    levels_per_site = random_effect_levels.get("per_site", {})
+
     _SITE_COLORS_SOLID = [
         "rgba(99,102,241,1.0)", "rgba(20,184,166,1.0)", "rgba(245,158,11,1.0)",
         "rgba(239,68,68,1.0)", "rgba(168,85,247,1.0)", "rgba(34,197,94,1.0)",
@@ -291,10 +296,13 @@ def _get_html_from_results(agg_result, computation_parameters=None):
         for site in all_sites:
             ls = result[OutputDictKeyLabels.LOCAL_STATS.value].get(site, {})
             ls_pe = ls.get("Parameter Estimates", {})
-            site_cards += (f'<div style="display:flex;justify-content:space-between;padding:.3rem 0;'
-                          f'border-bottom:1px solid var(--border);font-size:.8rem">'
-                          f'<span>{pill(site)}</span>'
-                          f'<span style="font-family:monospace;color:var(--td-mono)">'
+            site_labels = levels_per_site.get(site, [])
+            labels_str = ", ".join(site_labels) if site_labels else "single level"
+            site_cards += (f'<div style="display:flex;justify-content:space-between;align-items:baseline;padding:.3rem 0;'
+                          f'border-bottom:1px solid var(--border);font-size:.8rem;gap:.6rem">'
+                          f'<span style="display:flex;align-items:baseline;gap:.5rem">{pill(site)}'
+                          f'<span style="font-size:.72rem;color:var(--text3)">{labels_str}</span></span>'
+                          f'<span style="font-family:monospace;color:var(--td-mono);white-space:nowrap">'
                           f'SigmaSq {fnum(ls_pe.get("SigmaSquared"))}</span></div>')
 
         roi_sections += f'''<div class="hist-section" style="margin-bottom:1.5rem">
@@ -332,6 +340,7 @@ def _get_html_from_results(agg_result, computation_parameters=None):
     <div class="chip">Sites <b>{len(all_sites)}</b></div>
     <div class="chip">Outcomes (ROIs) <b>{len(rois)}</b></div>
     <div class="chip">Covariates <b>{n_covariates}</b></div>
+    <div class="chip">Random-effect levels <b>{total_levels}</b></div>
   </div>
   <div style="margin-top:.9rem;display:flex;flex-wrap:wrap;gap:.4rem">{roi_pills}</div>
   <div class="site-legend" style="margin-top:.75rem">{legend}</div>
