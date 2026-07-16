@@ -299,13 +299,13 @@ def _get_html_from_results(agg_result, computation_parameters=None):
 
         roi_sections += f'''<div class="hist-section" style="margin-bottom:1.5rem">
   <div class="hist-header"><div class="hist-title">{roi}</div>
-    <span style="font-size:.8rem;color:var(--text3)">Global Log-likelihood {fnum(inf.get("Log-likelihood"), "%.2f")}
-    &middot; Residual MS {fnum(inf.get("ResidualMeanSquares"), "%.4f")}
-    &middot; SigmaSquared {fnum(pe.get("SigmaSquared"))}</span>
+    <span style="font-size:.8rem;color:var(--text3)"><b>Global Log-likelihood:</b> {fnum(inf.get("Log-likelihood"), "%.2f")}
+    &middot; <b>Residual MS:</b> {fnum(inf.get("ResidualMeanSquares"), "%.4f")}
+    &middot; <b>SigmaSquared:</b> {fnum(pe.get("SigmaSquared"))}</span>
   </div>
   <div style="padding:1rem 1.4rem">
-    {'<div class="stat-card-scroll"><table class="stat-table"><thead><tr><th style="text-align:left">T-Contrast</th><th>Beta</th><th>Std Err</th><th>DOF</th><th>t</th><th>p-value</th></tr></thead><tbody>' + tcon_rows + '</tbody></table></div>' if tcon_rows else ''}
-    {'<div class="stat-card-scroll" style="margin-top:1rem"><table class="stat-table"><thead><tr><th style="text-align:left">F-Contrast</th><th>DOF</th><th>F</th><th>p-value</th><th>R&sup2;</th></tr></thead><tbody>' + fcon_rows + '</tbody></table></div>' if fcon_rows else ''}
+    {'<div class="stat-card-scroll"><table class="stat-table"><thead><tr><th style="text-align:left">Fixed Effect</th><th>Beta</th><th>Std Err</th><th>DOF</th><th>t</th><th>p-value</th></tr></thead><tbody>' + tcon_rows + '</tbody></table></div>' if tcon_rows else ''}
+    {'<div class="stat-card-scroll" style="margin-top:1rem"><table class="stat-table"><thead><tr><th style="text-align:left">Omnibus Test</th><th>DOF</th><th>F</th><th>p-value</th><th>R&sup2;</th></tr></thead><tbody>' + fcon_rows + '</tbody></table></div>' if fcon_rows else ''}
     <div style="margin-top:1rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:.35rem">Per-site local fit</div>
     {site_cards}
   </div>
@@ -323,6 +323,11 @@ def _get_html_from_results(agg_result, computation_parameters=None):
     header = f'''<div class="page-header">
   <h1>Decentralized Linear Mixed Effects Regression</h1>
   <p>Federated LME (PSFS) across {len(all_sites)} site{"s" if len(all_sites)!=1 else ""}</p>
+  <p style="font-size:.78rem;color:var(--text3);margin-top:.15rem;max-width:60ch">
+    PSFS (Pseudo Simplified Fisher Scoring) is the iterative algorithm — from Tom Maullin's
+    <a href="https://github.com/TomMaullin/BLMM" style="color:inherit;text-decoration:underline">BLMM</a>
+    package — used to fit this mixed model's fixed- and random-effects parameters.
+  </p>
   <div class="chips">
     <div class="chip">Sites <b>{len(all_sites)}</b></div>
     <div class="chip">Outcomes (ROIs) <b>{len(rois)}</b></div>
