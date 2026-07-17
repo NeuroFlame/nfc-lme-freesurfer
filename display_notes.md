@@ -33,7 +33,8 @@ data, without any site ever sharing subject-level data.
         {"name": {"value": "isControl"}, "vector": {"value": [0, 0, 1]}},
         {"name": {"value": "OmnibusF"}, "vector": {"value": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]}}
     ],
-    "IgnoreSubjectsWithMissingData": false
+    "IgnoreSubjectsWithMissingData": false,
+    "RandomFactorColumn": "site"
 }
 ```
 
@@ -50,6 +51,7 @@ Below are the specifications for the parameters:
 | Dependents | dict | Provide all the FreeSurfer ROI columns to regress against, along with their type, as shown in the example above. | dict | - | ✅ Yes |
 | Contrasts | list | List of contrasts to test. A 1D `vector` produces a T-contrast; a 2D `vector` (list of rows) produces an F-contrast. Vectors are indexed `[intercept, covariate_1, covariate_2, ...]` — the fixed-effects design matrix always carries a leading intercept column. | list of `{name, vector}` objects | - | ✅ Yes |
 | IgnoreSubjectsWithMissingData | boolean | Lets the computation owner decide how to handle subjects with missing or invalid covariate/dependent values. | true or false | false | ❌ No |
+| RandomFactorColumn | string | Name of the `covariates.csv` column (if any) that groups rows into random-effect levels *within each site's own data* — see below. | any column name | `RandomFactor` | ❌ No |
 
 #### Data Format Specification
 
@@ -60,17 +62,19 @@ Each site provides two CSV files:
 - **Format**: CSV (Comma-Separated Values)
 - **Headers**: one column per fixed-effect covariate, matching the `"Covariates"` section
   of `parameters.json`.
-- **`RandomFactor` (optional)**: a column grouping rows into random-effect levels *within
-  this site's own data* — e.g. a consortium node submitting pooled data from several
-  sub-sites/sub-institutions can label each row with the name of the sub-site it came
-  from (any type works — strings like institution names, or numeric IDs; values are
-  automatically encoded into dense per-site levels, sorted alphabetically/numerically).
-  If omitted, all rows default to a single random-effect level.
+- **Random-effect column (optional)**: named by the `RandomFactorColumn` parameter
+  (default `RandomFactor`; the example above uses `site`) — groups rows into random-effect
+  levels *within this site's own data* — e.g. a consortium node submitting pooled data
+  from several sub-sites/sub-institutions can label each row with the name of the
+  sub-site it came from (any type works — strings like institution names, or numeric IDs;
+  values are automatically encoded into dense per-site levels, sorted
+  alphabetically/numerically). If the column is omitted from `covariates.csv` entirely,
+  all rows default to a single random-effect level.
 - **Rows**: one row per subject, in the same order as `data.csv`.
 
-**General Structure**:
+**General Structure** (with `"RandomFactorColumn": "site"`):
 ```csv
-<Covariate_1>,<Covariate_2>,...,<Covariate_N>,RandomFactor
+<Covariate_1>,<Covariate_2>,...,<Covariate_N>,site
 <value_1>,<value_2>,...,<value_N>,1
 <value_1>,<value_2>,...,<value_N>,1
 ...
@@ -98,8 +102,8 @@ The key steps of the algorithm include:
 1. **Local random-effects reporting (`local_step1` / `remote_step1`)**: each site reads
    `covariates.csv` + `data.csv`, forms its local fixed-effects design matrix X (with an
    intercept), dependent variable matrix Y (one column per ROI), and random-effects design
-   matrix Z (one random-intercept level per distinct value of the optional `RandomFactor`
-   column). Each site also fits a site-local PSFS model, kept only for later `local_stats`
+   matrix Z (one random-intercept level per distinct value of the optional random-effect
+   column named by `RandomFactorColumn`). Each site also fits a site-local PSFS model, kept only for later `local_stats`
    reporting. Sites report their local level/observation counts; the aggregator assigns
    each site a column offset into the global Z matrix.
 
@@ -111,8 +115,15 @@ The key steps of the algorithm include:
    in `parameters.json`) log-likelihood, residual mean squares, covariance of beta, and
    T-/F-contrast statistics for every ROI.
 
-3. **Persist results (`local_step3`)**: the final per-ROI regression results (global +
-   per-site) are broadcast back and each site saves its own copy of
+3. **Per-level residuals (`local_step3` / `remote_step3`)**: the global beta is broadcast
+   back, and each site computes the mean residual (actual − population-average
+   prediction under the global fit) for each of its own random-effect levels — a simple,
+   unshrunk indicator of how that specific level (e.g. one institution) differs from the
+   federated fit. The aggregator merges these across all sites, nested by site so
+   identically-named levels at different sites can't collide.
+
+4. **Persist results (`local_step4`)**: the final per-ROI regression results (global +
+   per-site + per-level) are broadcast back and each site saves its own copy of
    `global_regression_result.json`, `index.html`, and one CSV per stats group
    (`global_stats.csv`, `local_stats_<site>.csv`).
 
@@ -123,7 +134,7 @@ The key steps of the algorithm include:
 - `Contrasts` are defined once, centrally, in `parameters.json` — all sites use the same
   contrasts (unlike the original COINSTAC computation, which allowed per-site contrast
   input; only the first site's copy was ever used there).
-- `RandomFactor` values, if provided, only need to be locally consistent within a site
+- Random-effect column values, if provided, only need to be locally consistent within a site
   (i.e. meaningfully distinguish sub-groups *within that site's own data*) — they do not
   need to be globally unique or consistently labeled across sites. Each site's distinct
   values are independently encoded into their own dense set of levels.
@@ -134,9 +145,11 @@ The key steps of the algorithm include:
 - **`global_regression_result.json`**: the `regressions` array — one entry per ROI with
   `ROI`, `global_stats` (SigmaSquared, CovRandomEffects, Log-likelihood,
   ResidualMeanSquares, CovBeta, T-Contrasts, F-Contrasts) and `local_stats` (the same
-  shape, per site, from each site's local-only fit).
+  shape, per site, from each site's local-only fit); plus top-level `random_effect_levels`
+  (total level count and each site's distinct random-effect labels) and `level_residuals`
+  (each site's mean residual per level per ROI, nested by site).
 - **`index.html`**: a self-contained, dark/light-mode report summarizing global and
-  per-site fits for every ROI.
+  per-site fits for every ROI, including a per-level residual breakdown under each site.
 - **`global_stats.csv`, `local_stats_<site>.csv`**: flattened per-ROI tables for the
   global fit and each site's local fit.
 
