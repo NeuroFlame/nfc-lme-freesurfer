@@ -50,7 +50,14 @@ class LMEExecutor(Executor):
             outgoing_shareable['computation_phase'] = client_result['computation_phase']
 
         elif task_name == LocalComputationPhases.LOCAL_STEP3.value:
-            client_result = self._client_step3_persist_results(shareable, fl_ctx, abort_signal,
+            client_result = self._client_step3_compute_level_residuals(shareable, fl_ctx, abort_signal,
+                                                                        cache_store.get_cache_dict())
+            cache_store.update_cache_dict(client_result['cache'])
+            outgoing_shareable['result'] = client_result['output']
+            outgoing_shareable['computation_phase'] = client_result['computation_phase']
+
+        elif task_name == LocalComputationPhases.LOCAL_STEP4.value:
+            client_result = self._client_step4_persist_results(shareable, fl_ctx, abort_signal,
                                                                 cache_store.get_cache_dict())
             cache_store.remove_cache()
             self.logger.format_log()
@@ -88,7 +95,18 @@ class LMEExecutor(Executor):
 
         return cem.perform_local_step2_compute_global_products(agg_result, self.logger, cache_dict)
 
-    def _client_step3_persist_results(
+    def _client_step3_compute_level_residuals(
+            self,
+            shareable: Shareable,
+            fl_ctx: FLContext,
+            abort_signal: Signal,
+            cache_dict: Dict
+    ) -> Dict:
+        agg_result = shareable.get("result")
+
+        return cem.perform_local_step3_compute_level_residuals(agg_result, self.logger, cache_dict)
+
+    def _client_step4_persist_results(
             self,
             shareable: Shareable,
             fl_ctx: FLContext,
@@ -99,7 +117,7 @@ class LMEExecutor(Executor):
         if agg_result is None:
             raise RuntimeError("Empty aggregation result")
 
-        result = cem.perform_local_step3_persist_results(agg_result, self.logger, cache_dict)
+        result = cem.perform_local_step4_persist_results(agg_result, self.logger, cache_dict)
         for output_file_type, output_file_data in result.get('output').items():
             if output_file_type == 'json':
                 self._save_json(output_file_data, "global_regression_result.json", fl_ctx)

@@ -5,7 +5,8 @@
       "tasks": [
         "local_step1",
         "local_step2",
-        "local_step3"
+        "local_step3",
+        "local_step4"
       ],
       "executor": {
         "path": "executor.executor.LMEExecutor",

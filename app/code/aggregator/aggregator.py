@@ -15,8 +15,8 @@ from . import aggregator_methods as am
 class LMEAggregator(Aggregator):
     """
     LMEAggregator handles the aggregation of results from multiple client sites across the
-    2-round decentralized LME protocol (gather random-effect levels, then sum product
-    matrices and fit the global PSFS model).
+    3-round decentralized LME protocol (gather random-effect levels; sum product matrices
+    and fit the global PSFS model; merge each site's per-RandomFactor-level residuals).
     """
 
     def __init__(self):
@@ -63,6 +63,14 @@ class LMEAggregator(Aggregator):
 
         elif contribution_round == LocalComputationPhases.LOCAL_STEP2.value:
             agg_result = am.perform_remote_step2_compute_global_model(
+                self.site_results[contribution_round], self.agg_cache)
+            self.agg_cache.update(agg_result.get('cache', {}))
+            outgoing_shareable['result'] = agg_result['output']
+            outgoing_shareable['computation_phase'] = agg_result['computation_phase']
+            return outgoing_shareable
+
+        elif contribution_round == LocalComputationPhases.LOCAL_STEP3.value:
+            agg_result = am.perform_remote_step3_merge_level_residuals(
                 self.site_results[contribution_round], self.agg_cache)
             self.agg_cache.update(agg_result.get('cache', {}))
             outgoing_shareable['result'] = agg_result['output']

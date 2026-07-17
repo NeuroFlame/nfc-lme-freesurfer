@@ -113,12 +113,51 @@ def perform_remote_step2_compute_global_model(site_results, agg_cache_dict):
         },
     }
 
-    output_dict = {"regressions": dict_list, "random_effect_levels": random_effect_levels}
+    beta_global = beta.reshape(ndepvars, nfixeffs).tolist()
+
+    output_dict = {
+        "regressions": dict_list,
+        "random_effect_levels": random_effect_levels,
+        "beta_global": beta_global,
+    }
+
+    computation_output = {
+        "output": output_dict,
+        # Carried forward so remote_step3 can re-attach them to the final output
+        # once it has merged each site's per-level residuals in.
+        "cache": {"regressions": dict_list, "random_effect_levels": random_effect_levels},
+        "computation_phase": AggregatorComputationPhases.AGG_STEP2.value,
+    }
+
+    return computation_output
+
+
+def perform_remote_step3_merge_level_residuals(site_results, agg_cache_dict):
+    """
+    Merges each site's own per-RandomFactor-level mean residuals (computed against the
+    global fit) into one combined view, nested by site so identically-named levels at
+    different sites (e.g. two sites both using the label '1') can't collide, and
+    re-attaches the 'regressions'/'random_effect_levels' output finalized in step 2.
+    """
+    sorted_site_ids = sorted(site_results.keys())
+
+    site_id_name_map = agg_cache_dict.get("site_id_name_map", {})
+    display_names = {sid: site_id_name_map.get(sid, sid) for sid in sorted_site_ids}
+
+    level_residuals_per_site = {
+        display_names[sid]: site_results[sid].get("level_residuals", {}) for sid in sorted_site_ids
+    }
+
+    output_dict = {
+        "regressions": agg_cache_dict.get("regressions", []),
+        "random_effect_levels": agg_cache_dict.get("random_effect_levels", {}),
+        "level_residuals": {"per_site": level_residuals_per_site},
+    }
 
     computation_output = {
         "output": output_dict,
         "cache": {},
-        "computation_phase": AggregatorComputationPhases.AGG_STEP2.value,
+        "computation_phase": AggregatorComputationPhases.AGG_STEP3.value,
     }
 
     return computation_output

@@ -82,6 +82,7 @@ def perform_client_step1_local_stats(covariates_path, data_path, computation_par
         "X": X.tolist(),
         "Y": Y.tolist(),
         "random_factor": random_factor_arr.tolist(),
+        "random_factor_labels": random_factor_labels,
         "local_param_dict_list": local_param_dict_list,
         "computation_parameters": computation_parameters,
     }
@@ -130,6 +131,11 @@ def perform_local_step2_compute_global_products(agg_result, logger, cache_dict):
     }
 
     cache_dict = {
+        "X": cache_dict["X"],
+        "Y": cache_dict["Y"],
+        "random_factor": cache_dict["random_factor"],
+        "random_factor_labels": cache_dict["random_factor_labels"],
+        "y_labels": cache_dict["y_labels"],
         "computation_parameters": cache_dict.get("computation_parameters", {}),
     }
 
@@ -142,7 +148,49 @@ def perform_local_step2_compute_global_products(agg_result, logger, cache_dict):
     return computation_output
 
 
-def perform_local_step3_persist_results(agg_result, logger, cache_dict):
+def perform_local_step3_compute_level_residuals(agg_result, logger, cache_dict):
+    """
+    Computes this site's mean residual (actual - population-average prediction under the
+    just-fitted global model) for each of its own RandomFactor levels. This is a simple,
+    unshrunk indicator of "what happened at this specific level" (e.g. one institution)
+    relative to the federated fixed-effects fit -- not a full BLUP/shrinkage estimate.
+    """
+    beta_global = np.array(agg_result["beta_global"])  # (ndepvars, nfixeffs)
+
+    X = np.array(cache_dict["X"])  # (n, nfixeffs)
+    Y = np.array(cache_dict["Y"])  # (n, ndepvars)
+    random_factor = np.array(cache_dict["random_factor"])  # (n,), 1-indexed local codes
+    random_factor_labels = cache_dict["random_factor_labels"]
+    y_labels = cache_dict["y_labels"]
+
+    Y_hat = X @ beta_global.T
+    residuals = Y - Y_hat
+
+    level_residuals = {}
+    if random_factor_labels:
+        for level, label in enumerate(random_factor_labels, start=1):
+            mask = random_factor == level
+            mean_residual = residuals[mask].mean(axis=0)
+            level_residuals[label] = {y_labels[j]: float(mean_residual[j]) for j in range(len(y_labels))}
+
+    output_dict = {
+        "level_residuals": level_residuals,
+    }
+
+    cache_dict = {
+        "computation_parameters": cache_dict.get("computation_parameters", {}),
+    }
+
+    computation_output = {
+        "output": output_dict,
+        "cache": cache_dict,
+        "computation_phase": LocalComputationPhases.LOCAL_STEP3.value,
+    }
+
+    return computation_output
+
+
+def perform_local_step4_persist_results(agg_result, logger, cache_dict):
     """
     Persists the final global regression results in json/csv/html format.
     """
@@ -154,7 +202,7 @@ def perform_local_step3_persist_results(agg_result, logger, cache_dict):
             "html": _get_html_from_results(copy.deepcopy(agg_result), computation_parameters),
         },
         "cache": {},
-        "computation_phase": LocalComputationPhases.LOCAL_STEP3.value,
+        "computation_phase": LocalComputationPhases.LOCAL_STEP4.value,
     }
     return results
 
@@ -232,6 +280,14 @@ def _get_html_from_results(agg_result, computation_parameters=None):
     random_effect_levels = agg_result.get("random_effect_levels", {})
     total_levels = random_effect_levels.get("total", len(all_sites))
     levels_per_site = random_effect_levels.get("per_site", {})
+    level_residuals_per_site = agg_result.get("level_residuals", {}).get("per_site", {})
+
+    def residual_chip(value):
+        if not isinstance(value, (int, float)):
+            return ""
+        color = "#059669" if value >= 0 else "#dc2626"
+        return (f'<span style="font-family:monospace;font-size:.72rem;color:{color};'
+                f'font-weight:600">{value:+.3f}</span>')
 
     _SITE_COLORS_SOLID = [
         "rgba(99,102,241,1.0)", "rgba(20,184,166,1.0)", "rgba(245,158,11,1.0)",
@@ -297,24 +353,39 @@ def _get_html_from_results(agg_result, computation_parameters=None):
             ls = result[OutputDictKeyLabels.LOCAL_STATS.value].get(site, {})
             ls_pe = ls.get("Parameter Estimates", {})
             site_labels = levels_per_site.get(site, [])
-            labels_str = ", ".join(site_labels) if site_labels else "single level"
-            site_cards += (f'<div style="display:flex;justify-content:space-between;align-items:baseline;padding:.3rem 0;'
-                          f'border-bottom:1px solid var(--border);font-size:.8rem;gap:.6rem">'
-                          f'<span style="display:flex;align-items:baseline;gap:.5rem">{pill(site)}'
-                          f'<span style="font-size:.72rem;color:var(--text3)">{labels_str}</span></span>'
+            site_level_residuals = level_residuals_per_site.get(site, {})
+
+            if site_labels:
+                level_rows = "".join(
+                    f'<div style="display:flex;justify-content:space-between;padding:.15rem 0 .15rem 1.6rem;font-size:.74rem">'
+                    f'<span style="color:var(--text3)">{label}</span>'
+                    f'{residual_chip(site_level_residuals.get(label, {}).get(roi))}</div>'
+                    for label in site_labels
+                )
+                labels_note = ""
+            else:
+                level_rows = ""
+                labels_note = '<span style="font-size:.72rem;color:var(--text3)">single level</span>'
+
+            site_cards += (f'<div style="padding:.3rem 0;border-bottom:1px solid var(--border)">'
+                          f'<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;gap:.6rem">'
+                          f'<span style="display:flex;align-items:baseline;gap:.5rem">{pill(site)}{labels_note}</span>'
                           f'<span style="font-family:monospace;color:var(--td-mono);white-space:nowrap">'
-                          f'SigmaSq {fnum(ls_pe.get("SigmaSquared"))}</span></div>')
+                          f'SigmaSq {fnum(ls_pe.get("SigmaSquared"))}</span></div>'
+                          f'{level_rows}</div>')
 
         roi_sections += f'''<div class="hist-section" style="margin-bottom:1.5rem">
   <div class="hist-header"><div class="hist-title">{roi}</div>
     <span style="font-size:.8rem;color:var(--text3)"><b>Global Log-likelihood:</b> {fnum(inf.get("Log-likelihood"), "%.2f")}
     &middot; <b>Residual MS:</b> {fnum(inf.get("ResidualMeanSquares"), "%.4f")}
-    &middot; <b>SigmaSquared:</b> {fnum(pe.get("SigmaSquared"))}</span>
+    &middot; <b>SigmaSquared:</b> {fnum(pe.get("SigmaSquared"))}
+    &middot; <b>Random-Effect Variance:</b> {fnum(pe.get("CovRandomEffects"))}</span>
   </div>
   <div style="padding:1rem 1.4rem">
     {'<div class="stat-card-scroll"><table class="stat-table"><thead><tr><th style="text-align:left">Fixed Effect</th><th>Beta</th><th>Std Err</th><th>DOF</th><th>t</th><th>p-value</th></tr></thead><tbody>' + tcon_rows + '</tbody></table></div>' if tcon_rows else ''}
     {'<div class="stat-card-scroll" style="margin-top:1rem"><table class="stat-table"><thead><tr><th style="text-align:left">Omnibus Test</th><th>DOF</th><th>F</th><th>p-value</th><th>R&sup2;</th></tr></thead><tbody>' + fcon_rows + '</tbody></table></div>' if fcon_rows else ''}
     <div style="margin-top:1rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:.35rem">Per-site local fit</div>
+    <div style="font-size:.72rem;color:var(--text3);margin-bottom:.4rem">Level rows show each level's mean (actual − population-average prediction) for {roi}, i.e. how far that level runs above/below what the global fixed-effects fit predicts.</div>
     {site_cards}
   </div>
 </div>'''

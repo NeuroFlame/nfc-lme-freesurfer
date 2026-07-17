@@ -11,11 +11,13 @@ from utils.utils import get_parameters_file_path
 
 class LMEController(Controller):
     """
-    LMEController drives the 3-round decentralized LME protocol:
+    LMEController drives the 4-round decentralized LME protocol:
     1. LOCAL_STEP1: sites report local random-effect level/observation counts.
     2. LOCAL_STEP2: sites compute product matrices against the global random-effects
-       structure and send them to the aggregator.
-    3. LOCAL_STEP3: sites persist the final global regression result.
+       structure and send them to the aggregator, which fits the global model.
+    3. LOCAL_STEP3: sites compute their own per-RandomFactor-level mean residuals
+       against the global fit; the aggregator merges these across all sites.
+    4. LOCAL_STEP4: sites persist the final global regression result.
     """
 
     ### Framework-Specific Setup: No modification needed ###
@@ -59,10 +61,21 @@ class LMEController(Controller):
         )
         aggregate_result = self.lme_aggregator.aggregate(fl_ctx)
 
-        # --------STEP 3 - END (final broadcast, no callback: sites persist their own copy)
+        # --------STEP 3
         fl_ctx.set_prop(key="CURRENT_ROUND", value=LocalComputationPhases.LOCAL_STEP3.value)
         self._broadcast_task(
             task_name=LocalComputationPhases.LOCAL_STEP3.value,
+            data=aggregate_result,
+            result_cb=self._accept_site_result,
+            fl_ctx=fl_ctx,
+            abort_signal=abort_signal,
+        )
+        aggregate_result = self.lme_aggregator.aggregate(fl_ctx)
+
+        # --------STEP 4 - END (final broadcast, no callback: sites persist their own copy)
+        fl_ctx.set_prop(key="CURRENT_ROUND", value=LocalComputationPhases.LOCAL_STEP4.value)
+        self._broadcast_task(
+            task_name=LocalComputationPhases.LOCAL_STEP4.value,
             data=aggregate_result,
             result_cb=None,
             fl_ctx=fl_ctx,
