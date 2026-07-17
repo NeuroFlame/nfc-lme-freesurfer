@@ -358,7 +358,7 @@ def _get_html_from_results(agg_result, computation_parameters=None):
             if site_labels:
                 level_rows = "".join(
                     f'<div style="display:flex;justify-content:space-between;padding:.15rem 0 .15rem 1.6rem;font-size:.74rem">'
-                    f'<span style="color:var(--text3)">{label}</span>'
+                    f'<span style="color:var(--text3)">{label} &middot; <span style="font-size:.68rem">&Delta; vs global</span></span>'
                     f'{residual_chip(site_level_residuals.get(label, {}).get(roi))}</div>'
                     for label in site_labels
                 )
@@ -370,8 +370,9 @@ def _get_html_from_results(agg_result, computation_parameters=None):
             site_cards += (f'<div style="padding:.3rem 0;border-bottom:1px solid var(--border)">'
                           f'<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;gap:.6rem">'
                           f'<span style="display:flex;align-items:baseline;gap:.5rem">{pill(site)}{labels_note}</span>'
-                          f'<span style="font-family:monospace;color:var(--td-mono);white-space:nowrap">'
-                          f'SigmaSq {fnum(ls_pe.get("SigmaSquared"))}</span></div>'
+                          f'<span style="font-family:monospace;color:var(--td-mono);white-space:nowrap" '
+                          f'title="Residual variance from an independent model fit using only this site\'s own data">'
+                          f'Local &sigma;&sup2; (site-only fit) {fnum(ls_pe.get("SigmaSquared"))}</span></div>'
                           f'{level_rows}</div>')
 
         roi_sections += f'''<div class="hist-section" style="margin-bottom:1.5rem">
