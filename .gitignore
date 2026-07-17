@@ -6,3 +6,4 @@ poc-workspace/
 job/
 .DS_Store
 test_data_synapse/
+test_output_synapse/
