@@ -47,7 +47,8 @@ def validate_and_get_inputs(covariates_path: str, data_path: str, computation_pa
             logger.info(error_message)
             return False, None, None, None, None
 
-        random_factor_col = client_constants.DEFAULT_RANDOM_FACTOR_COLUMN
+        random_factor_col = computation_parameters.get(
+            "RandomFactorColumn", client_constants.DEFAULT_RANDOM_FACTOR_COLUMN)
         if random_factor_col in covariates.columns:
             if covariates[random_factor_col].isnull().any():
                 error_message = f"Column '{random_factor_col}' contains empty values."

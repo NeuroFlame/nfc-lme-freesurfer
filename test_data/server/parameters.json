@@ -30,5 +30,6 @@
             "vector": {"value": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]}
         }
     ],
-    "IgnoreSubjectsWithMissingData": false
+    "IgnoreSubjectsWithMissingData": false,
+    "RandomFactorColumn": "site"
 }
