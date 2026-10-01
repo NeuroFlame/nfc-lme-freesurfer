@@ -100,7 +100,7 @@ Each site provides two CSV files:
 
 The key steps of the algorithm include:
 
-1. **Local random-effects reporting (`local_step1` / `remote_step1`)**: each site reads
+1. **Local random-effects reporting (`compute_local_stats` / `gather_site_levels`)**: each site reads
    `covariates.csv` + `data.csv`, forms its local fixed-effects design matrix X (with an
    intercept), dependent variable matrix Y (one column per ROI), and random-effects design
    matrix Z (one random-intercept level per distinct value of the optional random-effect
@@ -108,7 +108,7 @@ The key steps of the algorithm include:
    reporting. Sites report their local level/observation counts; the aggregator assigns
    each site a column offset into the global Z matrix.
 
-2. **Global product matrix aggregation (`local_step2` / `remote_step2`)**: each site forms
+2. **Global product matrix aggregation (`compute_global_products` / `compute_global_model`)**: each site forms
    its slice of the global Z matrix (using the offset from step 1) and recomputes its
    product matrices (XtX, XtY, XtZ, YtX, YtY, YtZ, ZtX, ZtY, ZtZ) against it. The
    aggregator sums these across all sites and fits the PSFS model **once**, globally,
@@ -116,14 +116,14 @@ The key steps of the algorithm include:
    in `parameters.json`) log-likelihood, residual mean squares, covariance of beta, and
    T-/F-contrast statistics for every ROI.
 
-3. **Per-level residuals (`local_step3` / `remote_step3`)**: the global beta is broadcast
+3. **Per-level residuals (`compute_level_residuals` / `merge_level_residuals`)**: the global beta is broadcast
    back, and each site computes the mean residual (actual − population-average
    prediction under the global fit) for each of its own random-effect levels — a simple,
    unshrunk indicator of how that specific level (e.g. one institution) differs from the
    federated fit. The aggregator merges these across all sites, nested by site so
    identically-named levels at different sites can't collide.
 
-4. **Persist results (`local_step4`)**: the final per-ROI regression results (global +
+4. **Persist results (`build_outputs`)**: the final per-ROI regression results (global +
    per-site + per-level) are broadcast back and each site saves its own copy of
    `global_regression_result.json`, `index.html`, and one CSV per stats group
    (`global_stats.csv`, `local_stats_<site>.csv`).
@@ -169,18 +169,39 @@ The computation outputs both **site-level** and **global-level** results, which 
 
 #### Running this computation
 
-To locally run this computation, please clone this repo and run the following:
+To locally run this computation, clone this repo and run:
 
-1. `./dockerRun.sh` (opens a bash terminal inside the docker container; run the following
-   commands inside the container terminal)
-2. `python makeJob.py site1,site2`
-3. `nvflare simulator ./job`
+- `./run_local_simulation.sh site1,site2`
+
+This builds the development image, creates the job folder, and runs the NVFlare
+simulator in one step. Pass `--no-build` to skip rebuilding the image on repeat runs
+(e.g. `./run_local_simulation.sh site1,site2 --no-build`).
+
+Output for each site lands under `test_output/simulate_job/<site>/`.
+
+#### Developing this computation
+
+This repo follows the
+[computation-nvflare-boilerplate](https://github.com/NeuroFlame/computation-nvflare-boilerplate)
+layout: the computation itself lives in `app/code/computation/` (`spec.py` declares the
+workflow; `lme_core/` holds the PSFS/BLMM numerical routines), while `app/code/framework/`,
+`app/code/runtime/`, `app/config/`, `system/` and the Docker/entrypoint files are owned by
+the boilerplate and updated only through its `scripts/migrate_computation.py`.
+
+- `make check` runs lint, format, compile and unit tests (`make setup-dev` once to create
+  the `.venv`).
+- `./dockerPush.sh --no-push` builds and validates the production image described by
+  `.neuroflame.json`.
+
+See [MIGRATION_NOTES.md](MIGRATION_NOTES.md) for what changed when this computation was
+migrated to the boilerplate architecture, and how that migration was verified against the
+prior implementation.
 
 #### Debug this computation using IDE
 
 To debug the code using an IDE, run the `debug.py` script with the following debug
-configuration:
+configuration (after creating the job folder with `python makeJob.py site1,site2`):
 
-1. **Parameters value:** `job -w ./myworkspace -n 2 -c site1,site2` (change the site count
-   to match your test data).
+1. **Parameters value:** `job -w ./simulator_workspace -n 2 -c site1,site2` (change the
+   site count to match your test data).
 2. **Environment Variables value:** `PYTHONUNBUFFERED=1;PYTHONPATH=<your_local_full_path>/nfc-lme-freesurfer/app/code`

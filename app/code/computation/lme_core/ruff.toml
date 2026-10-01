@@ -1,0 +1,5 @@
+# Vendored PSFS/BLMM numerical routines, adapted from coinstac-LME-Freesurfer.
+# Kept as close to upstream as possible, so not maintained to the boilerplate's
+# lint/format standard. A nested config (rather than the migration-managed
+# root pyproject.toml) so this survives future migrate_computation.py runs.
+exclude = ["*"]

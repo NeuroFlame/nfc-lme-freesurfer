@@ -1,43 +1,29 @@
+"""Run an NVFlare simulation without terminal-error postprocessing."""
+
 import argparse
+import subprocess
 import sys
-from sys import platform
 
-from nvflare.private.fed.app.simulator.simulator_runner import SimulatorRunner
-
-
-def define_simulator_parser(simulator_parser):
-    simulator_parser.add_argument("job_folder")
-    simulator_parser.add_argument("-w", "--workspace", type=str, help="WORKSPACE folder")
-    simulator_parser.add_argument("-n", "--n_clients", type=int, help="number of clients")
-    simulator_parser.add_argument("-c", "--clients", type=str, help="client names list")
-    simulator_parser.add_argument("-t", "--threads", type=int, help="number of parallel running clients")
-    simulator_parser.add_argument("-gpu", "--gpu", type=str, help="list of GPU Device Ids, comma separated")
-    simulator_parser.add_argument("-m", "--max_clients", type=int, default=100, help="max number of clients")
+from debugger import (
+    build_simulator_command,
+    configure_simulator_authorization,
+    define_simulator_parser,
+)
 
 
 def run_simulator(simulator_args):
-    simulator = SimulatorRunner(
-        job_folder=simulator_args.job_folder,
-        workspace=simulator_args.workspace,
-        clients=simulator_args.clients,
-        n_clients=simulator_args.n_clients,
-        threads=simulator_args.threads,
-        gpu=simulator_args.gpu,
-        max_clients=simulator_args.max_clients,
+    """Run the NVFlare simulator with parsed command-line arguments."""
+    configure_simulator_authorization(simulator_args.workspace)
+    completed_process = subprocess.run(
+        build_simulator_command(simulator_args),
+        check=False,
     )
-    run_status = simulator.run()
-
-    return run_status
+    return completed_process.returncode
 
 
 if __name__ == "__main__":
-    """
-    This is the main program when running the NVFlare Simulator. Use the Flare simulator API,
-    create the SimulatorRunner object, do a setup(), then calls the run().
-    """
-
-    if sys.version_info < (3, 7):
-        raise RuntimeError("Please use Python 3.7 or above.")
+    if sys.version_info < (3, 10):
+        raise RuntimeError("Please use Python 3.10 or above.")
 
     parser = argparse.ArgumentParser()
     define_simulator_parser(parser)
