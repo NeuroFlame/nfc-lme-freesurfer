@@ -7,15 +7,20 @@
   "task_result_filters": [],
   "components": [
     {
-      "id": "lme_aggregator",
-      "path": "aggregator.aggregator.LMEAggregator",
+      "id": "aggregator",
+      "path": "runtime.aggregator.RuntimeAggregator",
+      "args": {}
+    },
+    {
+      "id": "artifact_transfer",
+      "path": "framework.artifact_transfer.ArtifactTransfer",
       "args": {}
     }
   ],
   "workflows": [
     {
-      "id": "lme_workflow",
-      "path": "controller.controller.LMEController",
+      "id": "controller",
+      "path": "runtime.controller.RuntimeController",
       "args": {}
     }
   ]

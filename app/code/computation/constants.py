@@ -1,3 +1,5 @@
+"""Default computation parameter values."""
+
 DEFAULT_IgnoreSubjectsWithMissingData = False
 DEFAULT_RANDOM_FACTOR_COLUMN = "RandomFactor"
 

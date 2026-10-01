@@ -1,5 +1,7 @@
 __pycache__/
 *.py[cod]
+.ruff_cache/
+.venv/
 simulator_workspace/
 test_output/simulate_job/
 poc-workspace/
@@ -7,3 +9,4 @@ job/
 .DS_Store
 test_data_synapse/
 test_output_synapse/
+test_data_synapse.zip
