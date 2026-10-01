@@ -9,3 +9,4 @@ job/
 .DS_Store
 test_data_synapse/
 test_output_synapse/
+test_data_synapse.zip
